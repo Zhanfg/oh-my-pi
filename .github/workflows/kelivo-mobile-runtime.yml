@@ -29,7 +29,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -121,7 +121,7 @@ jobs:
 
           echo "### KELIVO mobile OMP runtime" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Binary: `omp-kelivo-mobile-linux-musl-arm64`" >> "$GITHUB_STEP_SUMMARY"
+          echo '- Binary: omp-kelivo-mobile-linux-musl-arm64' >> "$GITHUB_STEP_SUMMARY"
           echo "- Size: **$bytes bytes**" >> "$GITHUB_STEP_SUMMARY"
           echo "- Official v18.2.7 musl arm64 baseline: $baseline bytes" >> "$GITHUB_STEP_SUMMARY"
           echo "- Saved: **$saved bytes ($pct%)**" >> "$GITHUB_STEP_SUMMARY"
@@ -136,3 +136,36 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+
+      - name: Publish immutable prerelease
+        if: github.ref == 'refs/heads/kelivo/mobile-runtime'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA:0:8}"
+          tag="kelivo-mobile-v18.2.7-${short_sha}"
+          title="KELIVO Mobile OMP v18.2.7 (${short_sha})"
+
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --target "$GITHUB_SHA" \
+              --prerelease \
+              --title "$title" \
+              --notes "KELIVO mobile/headless OMP runtime built from commit $GITHUB_SHA."
+          fi
+
+          gh release upload "$tag" \
+            dist/omp-kelivo-mobile-linux-musl-arm64 \
+            dist/SHA256SUMS.txt \
+            dist/BUILD_INFO.txt \
+            --clobber
+
+          {
+            echo ""
+            echo "### Prerelease"
+            echo ""
+            echo "- Tag: $tag"
+            echo "- Asset: omp-kelivo-mobile-linux-musl-arm64"
+          } >> "$GITHUB_STEP_SUMMARY"
