@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - kelivo/mobile-runtime
+      - kelivo/mobile-rpc-entry
     paths:
       - ".github/workflows/kelivo-mobile-runtime.yml"
       - ".github/actions/bazel-cache/**"
@@ -119,7 +120,7 @@ jobs:
             echo "percent_saved_vs_official=$pct"
           } | tee dist/BUILD_INFO.txt
 
-          echo "### KELIVO mobile OMP runtime" >> "$GITHUB_STEP_SUMMARY"
+          echo "### KELIVO mobile OMP RPC-only runtime" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Binary: `omp-kelivo-mobile-linux-musl-arm64`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Size: **$bytes bytes**" >> "$GITHUB_STEP_SUMMARY"
@@ -131,7 +132,7 @@ jobs:
       - name: Upload runtime
         uses: actions/upload-artifact@v4
         with:
-          name: kelivo-mobile-omp-linux-musl-arm64
+          name: kelivo-mobile-omp-rpc-linux-musl-arm64
           path: dist/
           if-no-files-found: error
           compression-level: 0
