@@ -58,10 +58,10 @@ jobs:
           grep -q "omp-kelivo-mobile-linux-musl-arm64" \
             "$RUNNER_TEMP/kelivo-mobile-dry-run.log"
 
-      - name: Build musl arm64 native addon
+      - name: Build proven full musl arm64 native addon
         uses: ./.github/actions/bazel-natives
         with:
-          targets: linux-musl-arm64-kelivo
+          targets: linux-musl-arm64
           dest: packages/natives/native
           cache-scope: kelivo-mobile-linux-musl-arm64
 
