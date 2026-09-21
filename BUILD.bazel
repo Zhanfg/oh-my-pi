@@ -34,6 +34,16 @@ _ADDONS = {
     for target, (platform, out) in _ADDONS.items()
 ]
 
+# KELIVO's Android-managed Linux runtime only needs the headless coding-agent
+# surface. Reuse the canonical musl arm64 addon filename because the mobile
+# staging directory contains this variant alone.
+native_addon(
+    name = "natives-linux-musl-arm64-kelivo",
+    lib = "//crates/pi-natives:pi_natives_mobile",
+    out = "pi_natives.linux-arm64.node",
+    platform = "//bazel/platforms:linux-musl-arm64",
+)
+
 # Every addon buildable from a linux-x64 host (the omp-kata pods): all linux
 # targets plus the msvc cross build. darwin addons build on mac hosts.
 filegroup(
