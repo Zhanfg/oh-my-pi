@@ -1,0 +1,138 @@
+name: KELIVO Mobile OMP Runtime
+
+on:
+  push:
+    branches:
+      - kelivo/mobile-runtime
+    paths:
+      - ".github/workflows/kelivo-mobile-runtime.yml"
+      - ".github/actions/bazel-cache/**"
+      - ".github/actions/bazel-natives/**"
+      - ".github/actions/bun-install/**"
+      - "packages/coding-agent/**"
+      - "packages/natives/**"
+      - "crates/**"
+      - "bazel/**"
+      - "scripts/ci-release-build-binaries.ts"
+      - "scripts/bazel-natives.ts"
+      - "BUILD.bazel"
+      - "MODULE.bazel"
+      - "MODULE.bazel.lock"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "bun.lock"
+      - "package.json"
+  workflow_dispatch:
+
+concurrency:
+  group: kelivo-mobile-omp-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build mobile headless musl arm64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install dependencies
+        uses: ./.github/actions/bun-install
+
+      - name: Validate mobile build selection
+        shell: bash
+        env:
+          KELIVO_MOBILE_RUNTIME: "1"
+          RELEASE_TARGETS: linux-musl-arm64
+        run: |
+          set -euo pipefail
+          bun scripts/ci-release-build-binaries.ts --dry-run \
+            | tee "$RUNNER_TEMP/kelivo-mobile-dry-run.log"
+          grep -q "omp-kelivo-mobile-linux-musl-arm64" \
+            "$RUNNER_TEMP/kelivo-mobile-dry-run.log"
+
+      - name: Build musl arm64 native addon
+        uses: ./.github/actions/bazel-natives
+        with:
+          targets: linux-musl-arm64
+          dest: packages/natives/native
+          cache-scope: kelivo-mobile-linux-musl-arm64
+
+      - name: Build KELIVO mobile runtime
+        shell: bash
+        env:
+          KELIVO_MOBILE_RUNTIME: "1"
+          RELEASE_TARGETS: linux-musl-arm64
+        run: |
+          set -euo pipefail
+          bun run ci:release:build-binaries
+
+      - name: Smoke runtime on Alpine
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="$PWD/packages/coding-agent/binaries/omp-kelivo-mobile-linux-musl-arm64"
+          test -x "$binary"
+          docker run --rm \
+            -v "$binary:/usr/local/bin/omp:ro" \
+            alpine:3.22 sh -ec '
+              apk add --no-cache libstdc++ libgcc >/dev/null
+              runtime_dir="$(mktemp -d)"
+              HOME="$runtime_dir/home" XDG_DATA_HOME="$runtime_dir/xdg" omp --version
+              HOME="$runtime_dir/home" XDG_DATA_HOME="$runtime_dir/xdg" omp --help >/dev/null
+              HOME="$runtime_dir/home" XDG_DATA_HOME="$runtime_dir/xdg" omp --smoke-test
+            '
+
+      - name: Package and report
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          src="packages/coding-agent/binaries/omp-kelivo-mobile-linux-musl-arm64"
+          out="dist/omp-kelivo-mobile-linux-musl-arm64"
+          cp "$src" "$out"
+          chmod +x "$out"
+
+          bytes="$(stat -c '%s' "$out")"
+          baseline=204999888
+          saved=$((baseline - bytes))
+          if [ "$saved" -gt 0 ]; then
+            pct="$(awk -v saved="$saved" -v base="$baseline" 'BEGIN { printf "%.1f", saved * 100 / base }')"
+          else
+            pct="0.0"
+          fi
+
+          sha256sum "$out" | tee dist/SHA256SUMS.txt
+          {
+            echo "commit=${GITHUB_SHA}"
+            echo "binary_bytes=$bytes"
+            echo "official_v18_2_7_musl_arm64_bytes=$baseline"
+            echo "bytes_saved_vs_official=$saved"
+            echo "percent_saved_vs_official=$pct"
+          } | tee dist/BUILD_INFO.txt
+
+          echo "### KELIVO mobile OMP runtime" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Binary: `omp-kelivo-mobile-linux-musl-arm64`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Size: **$bytes bytes**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Official v18.2.7 musl arm64 baseline: $baseline bytes" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Saved: **$saved bytes ($pct%)**" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cat dist/SHA256SUMS.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: kelivo-mobile-omp-linux-musl-arm64
+          path: dist/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
