@@ -61,7 +61,7 @@ jobs:
       - name: Build musl arm64 native addon
         uses: ./.github/actions/bazel-natives
         with:
-          targets: linux-musl-arm64
+          targets: linux-musl-arm64-kelivo
           dest: packages/natives/native
           cache-scope: kelivo-mobile-linux-musl-arm64
 
