@@ -16,6 +16,13 @@ interface BinaryTarget {
 const repoRoot = path.join(import.meta.dir, "..");
 const binariesDir = path.join(repoRoot, "packages", "coding-agent", "binaries");
 const entrypoint = path.join(repoRoot, "packages", "coding-agent", "src", "cli.ts");
+const kelivoMobileRpcEntrypoint = path.join(
+	repoRoot,
+	"packages",
+	"coding-agent",
+	"src",
+	"kelivo-mobile-rpc.ts",
+);
 const transformersManifest: unknown = createRequire(import.meta.url)("@huggingface/transformers/package.json");
 if (
 	typeof transformersManifest !== "object" ||
@@ -156,7 +163,7 @@ async function buildBinary(target: BinaryTarget): Promise<void> {
 
 	await compileCodingAgent({
 		repoRoot,
-		entrypoint,
+		entrypoint: kelivoMobileRuntime ? kelivoMobileRpcEntrypoint : entrypoint,
 		outfile: path.join(repoRoot, outfile),
 		transformersVersion,
 		target: target.target,
