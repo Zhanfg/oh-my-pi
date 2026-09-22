@@ -49,6 +49,7 @@ export const ADDON_OUTPUTS: Record<string, string> = {
 	"linux-arm64": "pi_natives.linux-arm64.node",
 	"linux-musl-x64-baseline": "pi_natives.linux-x64-baseline.node",
 	"linux-musl-arm64": "pi_natives.linux-arm64.node",
+	"linux-musl-arm64-kelivo": "pi_natives.linux-arm64.node",
 	"darwin-x64-baseline": "pi_natives.darwin-x64-baseline.node",
 	"darwin-arm64": "pi_natives.darwin-arm64.node",
 	"win32-x64-baseline": "pi_natives.win32-x64-baseline.node",

@@ -28,6 +28,10 @@ if (
 const transformersVersion = transformersManifest.version;
 // Worker threads re-enter the binary's single CLI host entry.
 const isDryRun = process.argv.includes("--dry-run");
+const kelivoMobileRuntime = Bun.env.KELIVO_MOBILE_RUNTIME === "1";
+const KELIVO_MOBILE_TARGET = "linux-musl-arm64";
+const KELIVO_MOBILE_OUTFILE =
+	"packages/coding-agent/binaries/omp-kelivo-mobile-linux-musl-arm64";
 const targets: BinaryTarget[] = [
 	{
 		id: "darwin-arm64",
@@ -137,11 +141,15 @@ async function embedNative(target: BinaryTarget): Promise<void> {
 }
 
 async function buildBinary(target: BinaryTarget): Promise<void> {
-	console.log(`Building ${target.outfile}...`);
+	const outfile =
+		kelivoMobileRuntime && target.id === KELIVO_MOBILE_TARGET
+			? KELIVO_MOBILE_OUTFILE
+			: target.outfile;
+	console.log(`Building ${outfile}${kelivoMobileRuntime ? " (KELIVO mobile/headless)" : ""}...`);
 	await embedNative(target);
 	if (isDryRun) {
 		console.log(
-			`DRY RUN Bun.build target=${target.target} outfile=${target.outfile} external=${COMPILED_EXTERNAL_DEPENDENCIES.join(",")}`,
+			`DRY RUN Bun.build target=${target.target} outfile=${outfile} external=${COMPILED_EXTERNAL_DEPENDENCIES.join(",")}`,
 		);
 		return;
 	}
@@ -149,15 +157,16 @@ async function buildBinary(target: BinaryTarget): Promise<void> {
 	await compileCodingAgent({
 		repoRoot,
 		entrypoint,
-		outfile: path.join(repoRoot, target.outfile),
+		outfile: path.join(repoRoot, outfile),
 		transformersVersion,
 		target: target.target,
 		minifyIdentifiers: true,
+		mobileHeadless: kelivoMobileRuntime,
 		skipBuiltinCodesign: shouldAdhocSignDarwinBinary(target),
 	});
 	// Bun 1.3.12 emits a truncated Mach-O signature on darwin builds.
 	if (shouldAdhocSignDarwinBinary(target)) {
-		await runCommand(["codesign", "--force", "--sign", "-", path.join(repoRoot, target.outfile)], repoRoot);
+		await runCommand(["codesign", "--force", "--sign", "-", path.join(repoRoot, outfile)], repoRoot);
 	}
 }
 
@@ -196,6 +205,16 @@ async function main(): Promise<void> {
 
 	if (selectedTargets.length === 0) {
 		throw new Error("No release targets selected.");
+	}
+	if (
+		kelivoMobileRuntime &&
+		(selectedTargets.length !== 1 || selectedTargets[0]?.id !== KELIVO_MOBILE_TARGET)
+	) {
+		throw new Error(
+			`KELIVO_MOBILE_RUNTIME=1 only supports ${KELIVO_MOBILE_TARGET}; received: ${selectedTargets
+				.map(target => target.id)
+				.join(", ")}`,
+		);
 	}
 
 	await fs.mkdir(binariesDir, { recursive: true });

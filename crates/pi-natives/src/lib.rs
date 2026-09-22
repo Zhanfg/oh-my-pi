@@ -22,13 +22,18 @@
 #![allow(clippy::trivially_copy_pass_by_ref, reason = "napi env idiom")]
 #![feature(alloc_error_hook)]
 
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod appearance;
 pub mod ast;
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod audio;
 pub mod block;
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod clipboard;
 pub mod crash_handler;
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod desktop;
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod devicecheck;
 pub mod diff;
 pub mod edit;
@@ -42,24 +47,33 @@ pub mod html;
 pub mod iofs;
 pub mod js;
 pub mod keys;
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod live;
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod mermaid;
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod oauth_callback;
 /// PDF inspection and Markdown conversion.
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod pdf;
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod sixel;
 pub mod snapcompact;
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod spelling;
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod svg;
 pub mod utok;
 pub mod vcs;
 pub use pi_ast::language;
 
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod power;
 
 pub mod iso;
 pub mod prof;
 pub mod ps;
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod pty;
 pub mod shell;
 pub mod summary;
@@ -68,6 +82,7 @@ pub mod task;
 pub(crate) mod testing;
 pub mod text;
 pub mod tokens;
+#[cfg(not(feature = "kelivo-mobile-headless"))]
 pub mod tty_writer;
 pub(crate) mod utils;
 pub mod vectors;

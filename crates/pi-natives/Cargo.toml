@@ -20,6 +20,11 @@ workspace = true
 # Bazel-shipped addons build with crate_features = [] anyway. Linux devs who
 # want Wayland screencast opt in with `--features wayland-pipewire`.
 default = []
+# KELIVO's Android Agent hosts OMP over RPC inside a managed Linux runtime.
+# This feature removes desktop capture/input, local audio/clipboard, rich
+# terminal rendering and PTY-only surfaces from the mobile addon while keeping
+# coding/VCS/edit/search/isolation/shell primitives intact.
+kelivo-mobile-headless = []
 wayland-pipewire = ["dep:pipewire"]
 
 [dependencies]
