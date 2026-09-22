@@ -112,6 +112,73 @@ rust_shared_library(
     ],
 )
 
+# KELIVO mobile/headless variant. Keep the shipping target above untouched so
+# upstream release behavior remains identical; only the dedicated root addon
+# target selects this crate and its feature gate.
+rust_shared_library(
+    name = "pi_natives_mobile",
+    srcs = glob(["src/**/*.rs"]),
+    aliases = aliases(),
+    compile_data = glob([
+        "src/syntaxes/*.sublime-syntax",
+        "src/fonts/*",
+        "data/*.bin.zst",
+        "src/utok/claude/testdata/*.json",
+        "fixtures/*.json",
+    ]) + select({
+        "@platforms//os:macos": [":oauth_callback_darwin_helper"],
+        "//conditions:default": [":oauth_callback_relay"],
+    }),
+    crate_features = ["kelivo-mobile-headless"],
+    edition = "2024",
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    rustc_env = select({
+        "@platforms//os:macos": {
+            "OMP_OAUTH_DARWIN_HELPER": "$(execpath :oauth_callback_darwin_helper)",
+        },
+        "//conditions:default": {
+            "OMP_OAUTH_RELAY_BINARY": "$(execpath :oauth_callback_relay)",
+        },
+    }),
+    rustc_flags = select({
+        "//bazel/variants:baseline": ["-Ctarget-cpu=x86-64-v2"],
+        "//bazel/variants:modern": ["-Ctarget-cpu=x86-64-v3"],
+        "//conditions:default": [],
+    }) + select({
+        # napi_build::setup() equivalents (build.rs is not wired into Bazel):
+        # napi addons resolve Node symbols at load time on macOS; DF_1_NODELETE
+        # keeps the addon resident across Worker teardown on linux-gnu (napi
+        # emits it for gnu; harmless under musl's loader). windows-msvc needs
+        # nothing — napi-sys v3 imports node.exe via raw-dylib.
+        "@platforms//os:macos": ["-Clink-arg=-Wl,-undefined,dynamic_lookup"],
+        "@platforms//os:linux": ["-Clink-arg=-Wl,-z,nodelete"],
+        "//conditions:default": [],
+    }) + select({
+        # musl defaults to +crt-static, under which rustc silently emits no
+        # cdylib at all; napi musl addons have always linked the dynamic CRT.
+        "//bazel/triples:x86_64-unknown-linux-musl": ["-Ctarget-feature=-crt-static"],
+        "//bazel/triples:aarch64-unknown-linux-musl": ["-Ctarget-feature=-crt-static"],
+        # Statically link the MSVC CRT so the shipped .node does not import
+        # VCRUNTIME140.dll from the Visual C++ Redistributable, which is absent
+        # on a clean Windows install and makes the loader's dlopen fail with
+        # "The specified module could not be found" (error 126). The C deps are
+        # switched to /MT in lock-step via the static_link_msvcrt cc feature in
+        # the native_addon transition (bazel/defs.bzl).
+        "//bazel/triples:x86_64-pc-windows-msvc": ["-Ctarget-feature=+crt-static"],
+        "//conditions:default": [],
+    }),
+    version = "17.1.5",
+    deps = all_crate_deps(normal = True) + [
+        "//crates/pi-ast",
+        "//crates/pi-diff",
+        "//crates/pi-edit",
+        "//crates/pi-iso",
+        "//crates/pi-shell",
+        "//crates/pi-vcs",
+        "//crates/pi-walker",
+    ],
+)
+
 rust_test(
     name = "oauth_callback_relay_test",
     srcs = [
