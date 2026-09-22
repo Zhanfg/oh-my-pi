@@ -26,6 +26,15 @@ export interface CodingAgentCompileOptions {
 	readonly minifyIdentifiers?: boolean;
 	/** Disable Bun's built-in Darwin signing before the caller re-signs. */
 	readonly skipBuiltinCodesign?: boolean;
+	/**
+	 * KELIVO mobile/headless profile.
+	 *
+	 * RPC is the only host UI, so we trade the desktop CLI's fastest cold
+	 * startup for a materially smaller executable: no precompiled bytecode and
+	 * no embedded documentation index. Runtime docs remain available from the
+	 * KELIVO host when needed.
+	 */
+	readonly mobileHeadless?: boolean;
 }
 
 /**
@@ -38,6 +47,8 @@ export async function compileCodingAgent(options: CodingAgentCompileOptions): Pr
 		Bun.env.BUN_NO_CODESIGN_MACHO_BINARY = "1";
 	}
 	try {
+		const mobileHeadless = options.mobileHeadless === true;
+		const docsPayload = mobileHeadless ? "" : (await buildDocsIndexPayload()).payload;
 		const output = await Bun.build({
 			entrypoints: [options.entrypoint],
 			root: options.repoRoot,
@@ -45,12 +56,14 @@ export async function compileCodingAgent(options: CodingAgentCompileOptions): Pr
 			define: {
 				"process.env.PI_COMPILED": JSON.stringify("true"),
 				"process.env.PI_TINY_TRANSFORMERS_VERSION": JSON.stringify(options.transformersVersion),
-				"process.env.PI_DOCS_EMBED": JSON.stringify((await buildDocsIndexPayload()).payload),
+				"process.env.PI_DOCS_EMBED": JSON.stringify(docsPayload),
+				"process.env.OMP_KELIVO_MOBILE_RUNTIME": JSON.stringify(mobileHeadless ? "1" : ""),
 			},
-			// Precompiled bytecode skips parsing the ~20 MB bundle at boot:
-			// `omp --version` 256 ms -> 30 ms on M4 Max (+52 MB binary).
-			// Bytecode rejects top-level await in the bundle graph.
-			bytecode: true,
+			// Upstream desktop releases keep bytecode because it minimizes CLI
+			// cold-start latency, at a documented ~52 MB binary-size cost. KELIVO
+			// runs OMP behind a long-lived RPC process, where package size and
+			// first-download cost matter more than `omp --version` latency.
+			bytecode: !mobileHeadless,
 			minify: {
 				identifiers: options.minifyIdentifiers ?? false,
 				keepNames: true,
