@@ -53,3 +53,45 @@ describe("Windows release binary target", () => {
 		});
 	});
 });
+
+
+describe("KELIVO mobile runtime release target", () => {
+	it("builds a distinct Linux musl arm64 headless asset", async () => {
+		const result = await $`bun scripts/ci-release-build-binaries.ts --dry-run --targets linux-musl-arm64`
+			.cwd(repoRoot)
+			.env({
+				...process.env,
+				KELIVO_MOBILE_RUNTIME: "1",
+			})
+			.quiet()
+			.nothrow();
+
+		expect(result.exitCode).toBe(0);
+		const output = result.text();
+		expect(output).toContain(
+			"Building packages/coding-agent/binaries/omp-kelivo-mobile-linux-musl-arm64 (KELIVO mobile/headless)...",
+		);
+		expect(output).toContain(
+			"DRY RUN Bun.build target=bun-linux-arm64-musl outfile=packages/coding-agent/binaries/omp-kelivo-mobile-linux-musl-arm64",
+		);
+		expect(output).not.toContain(
+			"outfile=packages/coding-agent/binaries/omp-linux-musl-arm64",
+		);
+	});
+
+	it("rejects non-mobile release targets in the mobile profile", async () => {
+		const result = await $`bun scripts/ci-release-build-binaries.ts --dry-run --targets linux-x64`
+			.cwd(repoRoot)
+			.env({
+				...process.env,
+				KELIVO_MOBILE_RUNTIME: "1",
+			})
+			.quiet()
+			.nothrow();
+
+		expect(result.exitCode).not.toBe(0);
+		expect(result.stderr.toString()).toContain(
+			"KELIVO_MOBILE_RUNTIME=1 only supports linux-musl-arm64",
+		);
+	});
+});
